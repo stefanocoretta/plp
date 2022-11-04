@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = here::here())
 library(tidyverse)
 theme_set(theme_light())
+library(ggdist)
 ```
 
 <style type="text/css">
@@ -41,7 +42,7 @@ These instructions explain how to obtain the key descriptive statistics for acou
 
 Note that RStudio cannot function without R. *Think of R as the engine and RStudio as the console of a car*.
 
-![](img/R_vs_RStudio_1.png)
+![](../img/R_vs_RStudio_1.png)
 
 There is a huge amount of information about R and RStudio on the internet, and countless tutorials and introductions you can find via Google or other search engines.
 
@@ -255,6 +256,10 @@ The output of the code now has a `dur_mean` and a `dur_sd` column, with the dura
 You get means and standards deviations for the four vowels because we grouped the data by vowel with `group_by()`.
 Note that we are saving the output of the summarise operation into a new variable `dur_summ`.
 
+**Mean and Standard Deviation**. The **mean** is quite intuitively the most representative value among a set of observed values, like vowel durations. The mean is called a *measure of central tendency*, because it represents the central tendency of the data (central in reference to the range of values the data can take). The **standard deviation** is a *measure of dispersion* of the observed values around the mean. In other words, the standard deviation is a way of quantifying the *spread* of the data around the mean. If you want to understand the maths behind means and standard deviation, have a look at Sections 3.1-3.3 of the *Statistics for Linguists in R* book.
+
+Generally, higher standard deviation values indicate greater spread of the data around the mean, while lower standard deviation values indicate less spread of the data around the mean. Note that there isn't a magic standard deviation value that you can use to say "ok the data is very spread" vs "no, the data is not spread". Standard deviations are relative and very much dependent on the type of data they are taken from.
+
 You can round the mean and standard deviation values by using the `round()` function (check the documentation).
 
 ```{r dur-summ-1}
@@ -277,8 +282,6 @@ duration %>%
     ...
   )
 ```
-
-
 
 If you want to group by multiple columns, not just one, you simply add all the column names you want, separated by a comma `,`, in `group_by()`.
 
@@ -452,6 +455,59 @@ Remember the `dur_summ_2` data frame with the means we calculated above?
 
 Now you can use that to add the means to the violin plot!
 You simply specify the `data` argument in `geom_point()` so that the point geometry uses `dur_summ_2` rather than `duration`.
+
+## Interpreting plots
+
+Based on the violin plot above with overlaid means, we can observe and comment on several patterns.
+
+First, short vowels (`vlength = v`) have on average shorter duration than long vowels (`vlength = vv`), which in turn have shorter durations than overlong vowels (`vlength = vvv`). We can get the mean duration (with SD) depending on `vlength` like so:
+
+```{r vlength}
+duration %>%
+  group_by(vlength) %>%
+  summarise(dur_mean = round(mean(nucl_dur)), dur_sd = round(sd(nucl_dur)))
+```
+Short vowels have a mean duration of 68 ms (SD = 11), long vowels have a mean duration of 112 ms (SD = 12), overlong vowels are on average 149 ms long (SD = 21).
+
+Note how the SD of overlong vowels is almost twice as big as that of short and long vowels (22 vs 11/12 ms). If you look again at the violin plot, you see that the violins for the overlong vowels are much spread out and thinner than those of short and long vowels, which is exactly what the SD is also telling us (the difference is that in the plot each vowel quality is plotted separately but we can still notice the same amount of spread across different overlong vowels).
+
+Let's compare the duration of each vowel quality instead.
+
+```{r vowel}
+duration %>%
+  group_by(vowel) %>%
+  summarise(dur_mean = round(mean(nucl_dur)), dur_sd = round(sd(nucl_dur)))
+```
+
+When pooling the vowel durations across vowel lengths, the mean duration of vowels and SDs are pretty similar, with the exception of /u/, which is about 10 ms shorter than the other vowels.
+
+When we look at both vowel quality and length in the plot or by calculating means and SDs as we have done above, we see that while short and long vowels pattern similarly across vowel types, the overlong vowels really stand out: there does not seem to be an effect of vowel quality on average vowel duration in overlong vowels; the means are virtually the same.
+
+Moreover, as we have observed above, the SD of overlong vowels is much larger than that of short and long vowels, indicating that there is much more variance in vowel duration for overlong vowels than for the other lengths.
+
+Could perhaps this mean that, when surpassing an appreciable duration threshold, articulation related to specific vowel qualities does not affect duration anymore?
+
+## Violin slab plots
+
+We have been talking of means and SDs but so far plots have only shown the raw data (jitter plots), information on the density or distribution of the data (histograms and density plots), and maybe the mean (like in the violin plot).
+
+But how can we visualise information related to SDs? A technical introduction to what SDs actually mean would require you to understand probability distributions and while this would be beyond the scope of this tutorial, we point you to Chapter 3 of the Statistics for Linguists in R book, which cover this topics.
+
+Here, we will make a plot that is basically a violin plot but that indicates intervals of the distribution of data based on standard deviations (there are basically the Confidence Intervals of inferential statistics).
+
+```{r slab}
+duration %>%
+  ggplot(aes(vlength, nucl_dur)) +
+  stat_slab(aes(fill = stat(level)), .width = c(.68, .95, 1), side = "both") +
+  facet_grid(~ vowel) +
+  scale_fill_brewer()
+```
+
+The plot shows different intervals with different shades of blue: the 68% interval in dark blue indicates the range in which 68% of the data falls. This range happens to correspond to the range defined by `mean - 1 * SD` and `mean + 1 * SD`.
+The light blue interval (over which the dark blue one is overlaid) represents the range within which 95% of the data falls.
+This corresponds to the range defined by `mean - 2 * SD` and `mean + 2 * SD`.
+Note that when you use `3 * SD` you get a 99.7% interval which is basically 100% of the data.
+
 
 ## Saving plots
 
